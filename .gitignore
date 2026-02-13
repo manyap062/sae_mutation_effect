@@ -1,0 +1,39 @@
+# large data files and results
+# results/ - now included in repo for reproducibility
+archive/
+new_code_test/
+sae_weights/
+# keep mutation CSVs in data/ - they're small and should be in repo
+
+# old experiment directories (already archived locally)
+phase1_results/
+phase2_results/
+patching_results*/
+plots*/
+ig_code/ig_results/
+proteingym_output/
+report7_figures/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# environment
+*.pt
+*.safetensors
+esm_env/
+
+# logs
+logs/
+*.log
+*.out
+*.err
+slurm-*.out
+
+# OS
+.DS_Store
+Thumbs.db

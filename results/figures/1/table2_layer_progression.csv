@@ -1,0 +1,6 @@
+layer,mean_abs_score_change,std_abs_score_change,median_abs_score_change,n_mutations,mean_abs_feature_delta,correlation_rho,correlation_p
+8,1.001,1.400,0.364,107,5.668,0.697,1.26e-79
+12,1.650,2.124,0.731,107,3.851,0.721,6.97e-88
+16,2.155,3.251,0.181,107,3.647,0.784,2.73e-113
+20,1.745,2.733,0.110,107,3.397,0.784,1.65e-113
+24,0.661,1.082,0.000,107,3.637,0.775,3.84e-109
