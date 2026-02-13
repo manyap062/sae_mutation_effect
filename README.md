@@ -16,12 +16,12 @@ pip install torch numpy pandas safetensors fair-esm
 ```
 
 **Required files**:
-- **ESM-2 checkpoint**: Download ESM2-650M from [facebookresearch/esm](https://github.com/facebookresearch/esm)
+- **ESM-2 checkpoint**: Using ESM2-650M 
   - On Unity cluster: `/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt`
-  - Specify custom path: `--esm_model_path /path/to/esm2_t33_650M_UR50D.pt`
+  - Can use custom path: `--esm_model_path /path/to/esm2_t33_650M_UR50D.pt`
 - **SAE weights**: Place in `sae_weights/` directory (Adams et al. TopK SAEs)
   - Format: `esm2_plm1280_l{layer}_sae4096.safetensors` for each layer
-  - Specify custom directory: `--sae_weights_dir /path/to/weights/`
+  - Can use custom directory: `--sae_weights_dir /path/to/weights/`
 - **Mutation data**: Included in repo at `data/*.csv` (high-impact mutations pre-filtered)
 
 ## Quick start
