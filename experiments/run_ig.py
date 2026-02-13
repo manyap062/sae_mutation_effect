@@ -11,10 +11,8 @@ from src import (
     integrated_gradients_mutation, topk_features
 )
 
-# hardcoded paths
-PROJECT_DIR = "/project/pi_annagreen_umass_edu/manya/sae_mutation_effect"
-SAE_WEIGHTS_DIR = f"{PROJECT_DIR}/sae_weights"
-ESM_MODEL_PATH = "/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt"
+# auto-detect project directory
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def run_ig_for_mutation_layer(mutation_data, layer, esm_model, sae_model,
@@ -102,10 +100,21 @@ def main():
     parser.add_argument('--layers', type=str, default='24',
                        help='comma-separated layer indices, e.g., "24" or "8,12,16,20,24"')
     parser.add_argument('--ig_steps', type=int, default=10)
-    parser.add_argument('--output_dir', default=f'{PROJECT_DIR}/results/ig')
+    parser.add_argument('--output_dir', default=None,
+                       help='output directory (default: PROJECT_DIR/results/ig)')
+    parser.add_argument('--esm_model_path', default='/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt',
+                       help='path to ESM-2 model checkpoint')
+    parser.add_argument('--sae_weights_dir', default=None,
+                       help='directory containing SAE weights (default: PROJECT_DIR/sae_weights)')
     parser.add_argument('--device', default='cpu')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
+
+    # set defaults based on PROJECT_DIR
+    if args.output_dir is None:
+        args.output_dir = f'{PROJECT_DIR}/results/ig'
+    if args.sae_weights_dir is None:
+        args.sae_weights_dir = f'{PROJECT_DIR}/sae_weights'
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -130,8 +139,8 @@ def main():
     df_mutations = load_mutations(args.protein, n_mutations=args.n_mutations, seed=args.seed)
 
     # load models (once)
-    print(f"loading esm-2 from {ESM_MODEL_PATH}")
-    esm_model, alphabet, batch_converter = load_esm_local(ESM_MODEL_PATH, device)
+    print(f"loading esm-2 from {args.esm_model_path}")
+    esm_model, alphabet, batch_converter = load_esm_local(args.esm_model_path, device)
 
     protein_info = PROTEINS[args.protein]
     wt_seq = protein_info['wt_seq']
@@ -162,7 +171,7 @@ def main():
 
         for layer in layers:
             # load sae for this layer
-            sae_model = load_sae(layer, SAE_WEIGHTS_DIR, device)
+            sae_model = load_sae(layer, args.sae_weights_dir, device)
 
             # run IG
             result = run_ig_for_mutation_layer(

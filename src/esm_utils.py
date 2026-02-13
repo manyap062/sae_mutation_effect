@@ -6,12 +6,11 @@ from safetensors.torch import load_file
 from .sae import SparseAutoencoder
 
 
-# hardcoded paths
-ESM_MODEL_PATH = "/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt"
+# SAE weights filename pattern
 SAE_WEIGHTS_PATTERN = "esm2_plm1280_l{layer}_sae4096.safetensors"
 
 
-def load_esm_local(model_path=ESM_MODEL_PATH, device='cpu'):
+def load_esm_local(model_path, device='cpu'):
     """
     load ESM-2-650M from local .pt file
     returns model, alphabet, batch_converter

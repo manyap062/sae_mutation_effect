@@ -16,8 +16,12 @@ pip install torch numpy pandas safetensors fair-esm
 ```
 
 **Required files**:
-- **ESM-2 checkpoint**: `/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt` (already on Unity cluster)
-- **SAE weights**: `sae_weights/esm2_plm1280_l{layer}_sae4096.safetensors` (Adams et al. TopK SAEs)
+- **ESM-2 checkpoint**: Download ESM2-650M from [facebookresearch/esm](https://github.com/facebookresearch/esm)
+  - On Unity cluster: `/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt`
+  - Specify custom path: `--esm_model_path /path/to/esm2_t33_650M_UR50D.pt`
+- **SAE weights**: Place in `sae_weights/` directory (Adams et al. TopK SAEs)
+  - Format: `esm2_plm1280_l{layer}_sae4096.safetensors` for each layer
+  - Specify custom directory: `--sae_weights_dir /path/to/weights/`
 - **Mutation data**: Included in repo at `data/*.csv` (high-impact mutations pre-filtered)
 
 ## Quick start
@@ -32,9 +36,20 @@ Run integrated gradients:
 python experiments/run_ig.py --protein EPHB2_HUMAN --layers 16 --n_mutations 100
 ```
 
+**Custom paths** (if not using defaults):
+```bash
+python experiments/run_patching.py \
+  --protein EPHB2_HUMAN \
+  --layer 16 \
+  --esm_model_path /path/to/esm2_t33_650M_UR50D.pt \
+  --sae_weights_dir /path/to/sae_weights/ \
+  --output_dir /path/to/output/
+```
+
 Submit slurm jobs:
 ```bash
-sbatch slurm/submit_parallel.sh
+sbatch scripts/submit_patching.sh
+sbatch scripts/submit_ig.sh
 ```
 
 ## Structure

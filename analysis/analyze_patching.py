@@ -113,7 +113,8 @@ def main(path):
 
 
 if __name__ == "__main__":
-    PROJECT_DIR = "/project/pi_annagreen_umass_edu/manya/sae_mutation_effect"
+    import os
+    PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     results_path = (
         sys.argv[1]
         if len(sys.argv) > 1

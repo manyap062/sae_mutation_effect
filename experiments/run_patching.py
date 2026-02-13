@@ -11,22 +11,31 @@ from src import (
     run_patching_experiment
 )
 
-# hardcoded paths
-PROJECT_DIR = "/project/pi_annagreen_umass_edu/manya/sae_mutation_effect"
-SAE_WEIGHTS_DIR = f"{PROJECT_DIR}/sae_weights"
-ESM_MODEL_PATH = "/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt"
+# auto-detect project directory
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--protein', required=True, choices=['EPHB2_HUMAN', 'DNJA1_HUMAN', 'PR40A_HUMAN'])
     parser.add_argument('--layer', type=int, required=True)
-    parser.add_argument('--output_dir', default=f'{PROJECT_DIR}/results/patching')
+    parser.add_argument('--output_dir', default=None,
+                       help='output directory (default: PROJECT_DIR/results/patching)')
+    parser.add_argument('--esm_model_path', default='/datasets/bio/esm/models/esm2_t33_650M_UR50D.pt',
+                       help='path to ESM-2 model checkpoint')
+    parser.add_argument('--sae_weights_dir', default=None,
+                       help='directory containing SAE weights (default: PROJECT_DIR/sae_weights)')
     parser.add_argument('--n_mutations', type=int, default=100)
     parser.add_argument('--control_types', nargs='+', default=['real'])
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', default='cpu')
     args = parser.parse_args()
+
+    # set defaults based on PROJECT_DIR
+    if args.output_dir is None:
+        args.output_dir = f'{PROJECT_DIR}/results/patching'
+    if args.sae_weights_dir is None:
+        args.sae_weights_dir = f'{PROJECT_DIR}/sae_weights'
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -40,11 +49,11 @@ def main():
     df_mutations = load_mutations(args.protein, n_mutations=args.n_mutations, seed=args.seed)
 
     # load models
-    print(f"Loading esm-2 from {ESM_MODEL_PATH}")
-    model, alphabet, batch_converter = load_esm_local(ESM_MODEL_PATH, device)
+    print(f"Loading esm-2 from {args.esm_model_path}")
+    model, alphabet, batch_converter = load_esm_local(args.esm_model_path, device)
 
     print(f"Loading sae for layer {args.layer}")
-    sae = load_sae(args.layer, SAE_WEIGHTS_DIR, device)
+    sae = load_sae(args.layer, args.sae_weights_dir, device)
 
     wt_seq = protein_info['wt_seq']
 
