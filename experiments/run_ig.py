@@ -1,18 +1,20 @@
 """run integrated gradients experiments"""
 import os
+import sys
 import argparse
 import pandas as pd
 import numpy as np
 import torch
+
+# auto-detect project directory
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_DIR)
 
 from src import (
     PROTEINS, load_mutations,
     load_esm_local, load_sae, tokenize_seq,
     integrated_gradients_mutation, topk_features
 )
-
-# auto-detect project directory
-PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def run_ig_for_mutation_layer(mutation_data, layer, esm_model, sae_model,
@@ -124,16 +126,14 @@ def main():
     device = torch.device(args.device)
     layers = [int(x) for x in args.layers.split(',')]
 
-    print(f"\n{'='*60}")
-    print(f"integrated gradients experiment")
-    print(f"{'='*60}")
+    print(f"IG experiment")
+    print(f"{'-'*60}")
     print(f"protein: {args.protein}")
     print(f"mutations: {args.n_mutations}")
     print(f"layers: {layers}")
     print(f"IG steps: {args.ig_steps}")
     print(f"device: {device}")
     print(f"output: {args.output_dir}")
-    print(f"{'='*60}\n")
 
     # load mutation data
     df_mutations = load_mutations(args.protein, n_mutations=args.n_mutations, seed=args.seed)
@@ -184,7 +184,6 @@ def main():
 
     print(f"\n{'-'*60}")
     print(f"results saved to {args.output_dir}")
-    print(f"{'-'*60}")
 
 
 if __name__ == '__main__':
