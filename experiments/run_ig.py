@@ -46,6 +46,11 @@ def run_ig_for_mutation_layer(mutation_data, layer, esm_model, sae_model,
         device=device
     )
 
+    # print recovery diagnostics
+    print(f"    s_wt={info['s_wt']:.4f}  s_mut={info['s_mut']:.4f}  "
+          f"denom={info['recovery_denom']:.4f}  "
+          f"nonzero_effects={(effects_sae != 0).sum().item()}")
+
     # get top features
     top_abs = topk_features(effects_sae, k=20, mode='abs')
     top_pos = topk_features(effects_sae, k=10, mode='pos')
@@ -62,6 +67,9 @@ def run_ig_for_mutation_layer(mutation_data, layer, esm_model, sae_model,
         'dms_score': mutation_data['dms_score'],
         'esm_score': mutation_data['esm_score'],
         'baseline_score': info['baseline_score'],
+        's_wt': info['s_wt'],
+        's_mut': info['s_mut'],
+        'recovery_denom': info['recovery_denom'],
         'top_20_abs_indices': top_abs['indices'],
         'top_20_abs_effects': top_abs['effects'],
         'top_10_pos_indices': top_pos['indices'],

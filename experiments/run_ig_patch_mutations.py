@@ -14,6 +14,8 @@ For each mutation (V6P):
       --top_k 5
 """
 
+"TODO: Find topK according to x% performance recovery"
+
 import os
 import sys
 import argparse
@@ -101,25 +103,46 @@ def run_one_mutation(
 
     tok_pos = pos  # 1-indexed == token position (BOS at 0)
     wt_pre_acts, wt_mu, wt_std = get_sae_activations(sae, wt_hidden, tok_pos)
-    mut_pre_acts, _, _ = get_sae_activations(sae, mut_hidden, tok_pos)
+    mut_pre_acts, mut_mu,mut_std = get_sae_activations(sae, mut_hidden, tok_pos)
 
     rows = []
     for rank, (feat_idx, ig_attr) in enumerate(zip(top_indices, top_effects), start=1):
         feat_idx = int(feat_idx)
 
         # patch only this one latent from WT to mutant pre-activation value
-        patch_val = mut_pre_acts[feat_idx].reshape(1, 1)  # (1,1)
+        # patch_val = mut_pre_acts[feat_idx].reshape(1, 1)  # (1,1)
+        # patched_h = sae.decode_with_patch(
+        #     wt_pre_acts.unsqueeze(0), wt_mu, wt_std,
+        #     patch_indices=torch.tensor([feat_idx], device=device),
+        #     patch_values=patch_val,
+        # ).squeeze(0)
+
+        # wt_hidden_patched = wt_hidden.clone()
+        # wt_hidden_patched[0, tok_pos] = patched_h
+
+        # patched_logits = forward_from_layer(esm_model, wt_hidden_patched, layer)
+        # patched_score = wt_marginal_score(patched_logits, pos, wt_aa, mut_aa, alphabet)
+
+
+        # NOTE: patch only this one latent from mutant to wild type pre-activation value to see how much the WT effect can be recovered by just fixing this one latent
+        patch_val = wt_pre_acts[feat_idx].reshape(1, 1)  # (1,1)
         patched_h = sae.decode_with_patch(
-            wt_pre_acts.unsqueeze(0), wt_mu, wt_std,
+            mut_pre_acts.unsqueeze(0), mut_mu, mut_std,
             patch_indices=torch.tensor([feat_idx], device=device),
             patch_values=patch_val,
         ).squeeze(0)
 
-        wt_hidden_patched = wt_hidden.clone()
-        wt_hidden_patched[0, tok_pos] = patched_h
+        mut_hidden_patched = mut_hidden.clone()
+        mut_hidden_patched[0, tok_pos] = patched_h
 
-        patched_logits = forward_from_layer(esm_model, wt_hidden_patched, layer)
-        patched_score = wt_marginal_score(patched_logits, pos, wt_aa, mut_aa, alphabet)
+        patched_logits = forward_from_layer(esm_model, mut_hidden_patched, layer)
+        s_patched = wt_marginal_score(patched_logits, pos, wt_aa, mut_aa, alphabet)
+
+        recovery_denominator = info["s_wt"] - info["s_mut"]
+        recovery_numerator = s_patched - info["s_mut"]
+
+        # NOTE: Handle 0 denominator error later
+        recovery = recovery_numerator / recovery_denominator
         # wt_marginal_score returns a plain float
 
         rows.append({
@@ -127,7 +150,8 @@ def run_one_mutation(
             "mutation":             mutation_str,
             "latent_idx":           feat_idx,
             "ig_attribution":       float(ig_attr),
-            "patched_score_change": patched_score - baseline_score,
+            # "patched_score_change": patched_score - baseline_score,
+            "recovery":            recovery,
             "baseline_score":       baseline_score,
             "rank":                 rank,
         })
@@ -197,11 +221,11 @@ def main():
         for r in rows:
             print(f"  rank {r['rank']:>2}: latent {r['latent_idx']:>5}  "
                   f"ig={r['ig_attribution']:+.4f}  "
-                  f"patch_change={r['patched_score_change']:+.4f}  "
+                  f"recovery={r['recovery']:+.4f}  "
                   f"baseline={r['baseline_score']:.4f}")
 
     cols = ["protein", "layer", "position", "mutation", "latent_idx",
-            "ig_attribution", "patched_score_change", "baseline_score", "rank"]
+            "ig_attribution", "recovery", "baseline_score", "rank"]
     df = pd.DataFrame(all_rows, columns=cols)
     df.to_csv(args.output, index=False)
     print(f"\nSaved to {args.output}")

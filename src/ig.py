@@ -95,6 +95,8 @@ def integrated_gradients_mutation(
         wt_hidden = wt_results["representations"][hook_layer]  # (1, L+2, 1280)
         mut_hidden = mut_results["representations"][hook_layer]
 
+    # NOTE: SAE BEING APPLIED AT JUST A SINGLE POSITION, SO JUST GRABBING THE HIDDEN STATE AT THE MUTATION POSITION TO ENCODE/DECODE THROUGH SAE. THIS ALSO MEANS WE ARE GETTING IG ATTRIBUTIONS FOR THE LATENT FEATURES OF JUST THIS ONE POSITION???? NEEDS TO CHANGE
+
     # get sae pre-activations at mutation position
     tok_pos = position
     wt_h = wt_hidden[0, tok_pos]  # (1280,)
@@ -109,7 +111,6 @@ def integrated_gradients_mutation(
 
     # compute baseline scores (for IG normalisation and reporting)
     with torch.no_grad():
-        # reconstruct wt hidden state through sae (same as α=0.00 in IG loop)
         wt_h_reconstructed = sae_model.decode(
             wt_pre_acts.unsqueeze(0),
             wt_mu,
@@ -125,6 +126,7 @@ def integrated_gradients_mutation(
         s_wt = baseline_score
 
         # decode mut pre acts using wt layer normalization stats
+        # reconstruct mut hidden state through sae (same as α=0.00 in IG loop)
         mut_h_reconstructed = sae_model.decode(
             mut_pre_acts.unsqueeze(0),
             wt_mu,
@@ -135,8 +137,10 @@ def integrated_gradients_mutation(
         mut_hidden_baseline[0, tok_pos] = mut_h_reconstructed
 
         mut_baseline_logits = forward_from_layer(esm_model, mut_hidden_baseline, hook_layer)
-        # s_mut = log p(wt_aa | x_mut) - log p(mut_aa | x_mut)  (flipped)
-        s_mut = wt_marginal_score(mut_baseline_logits, position, mut_aa, wt_aa, alphabet)
+        # NOTE: s_mut = log p(wt_aa | x_mut) - log p(mut_aa | x_mut)  (flipped) -> INCORRECT, FOR FAIR COMPARISON WITH THE OTHER END POINT, SHOULD BE SAME DIRECTION AS s_wt
+
+        # s_mut = log p(mut_aa | x_mut) - log p(wt_aa | x_mut)
+        s_mut = wt_marginal_score(mut_baseline_logits, position, wt_aa, mut_aa, alphabet)
 
         # denominator for recovery formula
         recovery_denom = s_wt - s_mut
@@ -145,7 +149,10 @@ def integrated_gradients_mutation(
 
     for step_idx, alpha in enumerate(np.linspace(0, 1, steps, endpoint=False)):
         # interpolate between wt and mutant pre-activations
-        interpolated = (1 - alpha) * wt_pre_acts + alpha * mut_pre_acts
+        # interpolated = (1 - alpha) * wt_pre_acts + alpha * mut_pre_acts
+
+        # NOTE: for performance recovery we want to do corrupted -> clean, so interpolate from mutant to WT
+        interpolated = alpha * wt_pre_acts + (1 - alpha) * mut_pre_acts
         interpolated = interpolated.to(device)
         interpolated.requires_grad_(True)
 
