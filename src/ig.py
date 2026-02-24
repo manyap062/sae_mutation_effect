@@ -107,7 +107,7 @@ def integrated_gradients_mutation(
         wt_pre_acts = wt_pre_acts.squeeze(0)  # (4096,)
         mut_pre_acts = mut_pre_acts.squeeze(0)
 
-    # compute baseline wt score (for reporting)
+    # compute baseline scores (for IG normalisation and reporting)
     with torch.no_grad():
         # reconstruct wt hidden state through sae (same as α=0.00 in IG loop)
         wt_h_reconstructed = sae_model.decode(
@@ -116,15 +116,31 @@ def integrated_gradients_mutation(
             wt_std
         ).squeeze(0)
 
-        # patch this into hidden states
         wt_hidden_baseline = wt_hidden.clone()
         wt_hidden_baseline[0, tok_pos] = wt_h_reconstructed
 
-        # forward and compute score
         baseline_logits = forward_from_layer(esm_model, wt_hidden_baseline, hook_layer)
+        # s_wt = log p(mut_aa | x_wt) - log p(wt_aa | x_wt)
         baseline_score = wt_marginal_score(baseline_logits, position, wt_aa, mut_aa, alphabet)
+        s_wt = baseline_score
 
-    # run integrated gradients
+        # decode mut pre acts using wt layer normalization stats
+        mut_h_reconstructed = sae_model.decode(
+            mut_pre_acts.unsqueeze(0),
+            wt_mu,
+            wt_std
+        ).squeeze(0)
+
+        mut_hidden_baseline = wt_hidden.clone()
+        mut_hidden_baseline[0, tok_pos] = mut_h_reconstructed
+
+        mut_baseline_logits = forward_from_layer(esm_model, mut_hidden_baseline, hook_layer)
+        # s_mut = log p(wt_aa | x_mut) - log p(mut_aa | x_mut)  (flipped)
+        s_mut = wt_marginal_score(mut_baseline_logits, position, mut_aa, wt_aa, alphabet)
+
+        # denominator for recovery formula
+        recovery_denom = s_wt - s_mut
+
     effects = []
 
     for step_idx, alpha in enumerate(np.linspace(0, 1, steps, endpoint=False)):
@@ -147,13 +163,14 @@ def integrated_gradients_mutation(
         # forward through remaining layers
         logits = forward_from_layer(esm_model, wt_hidden_patched, hook_layer)
 
-        # compute score (this is our metric function)
-        score = wt_marginal_score(logits, position, wt_aa, mut_aa, alphabet)
+        # s_mut and recovery_denom are constants 
+        s_patch = wt_marginal_score(logits, position, wt_aa, mut_aa, alphabet)
+        recovery = (s_patch - s_mut) / recovery_denom
 
         # backprop to get gradients
-        score.backward()
+        recovery.backward()
 
-        # record: gradient × (mut - wt) for each feature
+        # gradient*(mut-wt) for each feature
         gradient = interpolated.grad  # (4096,)
         delta = mut_pre_acts.to(device) - wt_pre_acts.to(device)
         effect = gradient * delta
@@ -163,9 +180,12 @@ def integrated_gradients_mutation(
     # average effects across all integration steps
     effects_sae = torch.stack(effects).mean(dim=0)  # (4096,)
 
-    # collect diagnostic info
+    # collect info
     info = {
-        'baseline_score': baseline_score.item(),
+        'baseline_score': baseline_score.item(),  # s_wt
+        's_wt': s_wt.item(),
+        's_mut': s_mut.item(),
+        'recovery_denom': recovery_denom.item(),
         'wt_pre_acts': wt_pre_acts.cpu().numpy(),
         'mut_pre_acts': mut_pre_acts.cpu().numpy(),
         'feature_deltas': (mut_pre_acts - wt_pre_acts).cpu().numpy(),
@@ -176,7 +196,7 @@ def integrated_gradients_mutation(
 
 def topk_features(effects_sae: torch.Tensor, k: int = 20, mode: str = 'abs') -> dict:
     """
-    extract top-k most important features from IG attributions
+    get top-k most important features from IG attributions
 
     args:
         effects_sae: (4096,) feature attributions
@@ -195,8 +215,7 @@ def topk_features(effects_sae: torch.Tensor, k: int = 20, mode: str = 'abs') -> 
         top_effects, top_idx = torch.topk(effects_sae, k, largest=True)
     elif mode == 'neg':
         top_effects, top_idx = torch.topk(effects_sae, k, largest=False)
-    else:
-        raise ValueError(f"mode must be 'abs', 'pos', or 'neg', got {mode}")
+
 
     return {
         'indices': top_idx.cpu().numpy(),
