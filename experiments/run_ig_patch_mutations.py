@@ -92,8 +92,8 @@ def run_one_mutation(
         )
         baseline_score = info["baseline_score"]
 
-    # top k latents by absolute IG attribution
-    top = topk_features(effects_sae, k=top_k, mode="abs")
+    # top k latents by most negative IG attribution
+    top = topk_features(effects_sae, k=top_k, mode="neg")
     top_indices = top["indices"]   # (k,) numpy int array
     top_effects = top["effects"]   # (k,) signed float array
 
