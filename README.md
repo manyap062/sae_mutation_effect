@@ -60,21 +60,13 @@ sbatch scripts/submit_ig.sh
 - `results/` - outputs
 - `data/` - protein sequences + mutations
 
-## proteins
+## Proteins
 
 - EPHB2_HUMAN (68aa, ~50 high-impact mutations)
 - DNJA1_HUMAN (66aa, ~50 high-impact mutations)
 - PR40A_HUMAN (64aa, ~50 high-impact mutations)
 
-
-## key findings
-
-- Peak causal effects at layer 16
-- Extreme sparsity: top 20 features = 95-98% of IG attribution
-- Single latent features cause 5-15 log-odds changes
-- Universal features across proteins (AA detectors, for ex. leucine detectors 2339, 1237)
-
-## Important methodological notes
+## methodological notes
 
 - WT marginal scoring (not using masked-marginal, masked tokens degrades SAE performance)
 - Activation patching 
